@@ -1,0 +1,83 @@
+<sdsdialog name="AE Distribution" width="100" height="200" layout="tabbedpane">
+   <description>
+   	This process compares distributions of adverse events and demographic variables across treatment arms.
+   </description>
+
+	<sdstabbedpane name="General">
+
+		<include href="CDISCFolders.xml" />
+
+      <include href="AETermLevel.xml" />
+      
+      <include href="AEGroupLevel.xml" />
+      
+		<include href="NTrtUse.xml" />
+
+		<include href="TreatVars.xml" />
+
+		<include href="AESerTEOnly.xml" />
+
+		<input name="CountMultiple" type="checkbox" label="Count multiple occurrences of an event per subject" required="false" value="No">
+			<description>
+				Select the method by which to compute counts of adverse events.  If you select Subject Occurrence, counts will
+				reflect the number of subjects that experienced an adverse event.  Each subject will only contribute one time
+				to the occurrence count of an event, regardless of how many times that specific event may have occurred to the subject. Note, for selecting the
+				representative event occurrence per subject, the data is sorted to take the first event occurring to a subject based on seriousness (AESER), severity
+				(AESEV or AETOXGR), and Study day (AESTDY).  If you select
+				Total Occurrence, the distribution display will represent overall counts of events, including multipler occurrences per subjects.
+			</description>
+		</input>
+		
+		<input name="PropThresh" type="slider" label="Percent Occurrence Threshold" value="0">
+			<range domain="real" min="0" max="15" ndec="2" />
+			<description>
+					Enter a threshold for which to display adverse events  
+					Only events that occur above the entered threshold (in terms of overall percent of subject 
+					occurrence) will be displayed initially.  The threshold can be dynamically changed on the resulting 
+					output dashboard.
+			</description>
+		</input>				
+
+	</sdstabbedpane>
+
+	<sdstabbedpane name="Filters">
+		
+		<include href="SubjectFilter.xml" />
+
+		<input name="AEDeltaDrop" type="list1" label="Include the following adverse events:"
+		  options="All,New" value="All">
+		  <description>
+				Choose which records to include in the analysis.  Most relevant when trying to subset to records that are new when study data has been updated and compared
+				to previous snapshot.  New shows records newly available in recent snapshot. All includes  all available records (subject to other record filtering, e.g. with the where statement). 
+		  </description>
+		</input>
+
+		<include href="AEWhereStmt.xml" />
+
+		<include href="Populations.xml" />
+		
+		<include href="ClinicalByVars.xml" />
+
+	</sdstabbedpane>
+
+	<sdstabbedpane name="Output">
+	
+		<input name="Distribution_OutData" label="Output Data Set" type="textfield" maxlength="32">
+			<description>
+				Name the output SAS data set to be created by this process.
+				If you leave this blank, the default name StudyName_aed will be used.
+			</description>
+		</input>
+
+		<input name="DistributionScript" label="JMP Script Output File Name" type="outfile" value="" extension="jsl" autolaunch="Y" hidden="SDS" required="SDS">
+			<description>
+				Name the output JMP script file (.jsl)
+				containing script to display results.
+			</description>
+		</input>
+
+		<include href="OutPath.xml" />
+
+	</sdstabbedpane>
+
+</sdsdialog>
