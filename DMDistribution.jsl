@@ -1,0 +1,1501 @@
+//!
+
+Names Default to Here(1);
+include(jg:LSpath[1]||"/Locale.jsl");
+
+if(!IsEmpty(jg:DMDistribution_mainDialog),
+   jg:DMDistribution_mainDialog<<Bring Window to Front;
+   throw();
+);
+
+jg:nVarLimit = 5000;
+
+LSIndex = 3;
+
+if(LSIndex==3 & jg:sasserver!="Local" & !Contains("DMDistribution","AddStudy") & !jg:studies_exist,
+	New Window(locale:fill(locale:get("JMPXMessage_Text"),
+	{if ("Clinical" == "Clinical", locale:get("Clinical_Text"),
+		"Clinical" == "Life Sciences", locale:get("LifeSciences_Text"),
+		"Clinical" == "Genomics", "Genomics",
+		"-"
+		);}),showmenu(0),showtoolbars(0),
+		HListBox(
+			VListBox(
+				ztb=TextBox(locale:fill(locale:get("ErrorNoStudiesFoundForSASServerProfileX_Text"),{jg:sasserver})),
+				ztb<<FontColor(3);
+			)
+		),
+		<< SetWindowIcon(jg:LSpath[1]||"/Documentation/Icons/JMP"||jg:LSprod[lsi]||"App.ico")
+	);
+	throw();
+);
+
+jg:DMDistribution_wFlag = 0; //initiate the indicator refering if dialog is open from Work Flow Builder
+
+if(
+   host is(Windows),
+      jg:processLibraryDir = "C:\Program Files\SASHome94\JMPClinical\11\Clinical\ProcessLibrary\";
+      jg:macroLibDir = "C:\Program Files\SASHome94\JMPClinical\11\Clinical\MacroLib\";
+      jg:savedSettingsDir="";
+   ,     
+      jg:processLibraryDir = "C:\Program Files\SASHome94\JMPClinical\11\Clinical\ProcessLibrary\";
+      jg:macroLibDir = "C:\Program Files\SASHome94\JMPClinical\11\Clinical\MacroLib\";
+      jg:savedSettingsDir="";
+      include(jg:jmpLSdir[1]||"ProcessLibrary/SASDataSetTextOpen.jsl");
+);
+
+try(
+   include(jg:jmpLSUserDir[1]||"DefaultPaths.jsl")
+,
+   jg:_DefaultSettingsPath_=jg:jmpLSUserDir[LSindex]||"Settings/";
+   jg:_DefaultServerOutPath_ = "";
+);
+
+try(htmlpath = jg:jmpLSdir[1]||"Documentation/Context_Specific_Help/"||jg:LSDocFolderList["DMDistribution"]||"_Context_Help/"
+, htmlpath = "");
+
+jg:DMDistribution_sasfile = "DMDistribution.sas";
+
+//This holds the currently running APs' unique file name which allows us to kill
+//a process.
+if (IsEmpty(jg:runningAPs),jg:runningAPs={});
+
+try(
+   curSettingCheck=jg:DMDistributioncurrentSetting,
+   jg:DMDistributioncurrentSetting=""
+);
+
+
+
+
+jg:DMDistribution_parmsnam = {"StudyName", "TrtUse", "TrtVar", "SubjectFilter", "WhereStmt", "PopulationSet", "DesignByVars", "DMDistribution_OutData", "DMDistributionScript", "OutPath", "MacroPath"};
+
+jg:DMDistribution_parmslabel = {"Study", "Treatment or Comparison Variable to Use", "Treatment or Comparison Variable", "Subject Filter", "Additional Filter to Include Subjects", "Select the population to include in the analysis", "By Variables", "Output Data Set", "JMP Script Output File Name", "* Output Folder", "Macro Path"};
+
+jg:DMDistribution_tparmslabel = {"locale:get(\!"StudyName_Label\!")", "locale:get(\!"TrtUse_Label\!")", "locale:get(\!"TrtVar_Label\!")", "locale:get(\!"SubjectFilter_Label\!")", "locale:get(\!"WhereStmt_Label\!")", "locale:get(\!"PopulationSet_Label\!")", "locale:get(\!"DesignByVars_Label\!")", "locale:get(\!"DMDistribution_OutData_Label\!")", "locale:get(\!"DMDistributionScript_Label\!")", "\!"* \!"||locale:get(\!"OutPath_Label\!")", "locale:get(\!"MacroPath_Label\!")"};
+
+jg:DMDistribution_controls = { jg:DMDistribution_StudyName, jg:DMDistribution_TrtUse, jg:DMDistribution_TrtVar, jg:DMDistribution_SubjectFilter, jg:DMDistribution_WhereStmt, jg:DMDistribution_PopulationSet, jg:DMDistribution_DesignByVars, jg:DMDistribution_DMDistribution_OutData, jg:DMDistribution_DMDistributionScript, jg:DMDistribution_OutPath, jg:DMDistribution_MacroPath };
+
+jg:DMDistribution_labelcontrols = { jg:DMDistribution_StudyName_label, jg:DMDistribution_TrtUse_label, jg:DMDistribution_TrtVar_label, jg:DMDistribution_SubjectFilter_label, jg:DMDistribution_WhereStmt_label, jg:DMDistribution_PopulationSet_label, jg:DMDistribution_DesignByVars_label, jg:DMDistribution_DMDistribution_OutData_label, jg:DMDistribution_DMDistributionScript_label, jg:DMDistribution_OutPath_label, jg:DMDistribution_MacroPath_label };
+
+jg:DMDistribution_buttons = { jg:DMDistribution_StudyNameButton, nobutton, jg:DMDistribution_TrtVarButton, nobutton, nobutton, nobutton, jg:DMDistribution_DesignByVarsButton, nobutton, nobutton, jg:DMDistribution_OutPathButton, nobutton };
+
+jg:DMDistribution_open = { jg:DMDistribution_StudyNameOpenButton, "noopen", "noopen", "noopen", "noopen", "noopen", "noopen", "noopen", "noopen", jg:DMDistribution_OutPathOpenButton, "noopen" };
+
+jg:DMDistribution_sliders = { noslider, noslider, noslider, noslider, noslider, noslider, noslider, noslider, noslider, noslider, noslider };
+
+jg:DMDistribution_nparms = NItems(jg:DMDistribution_controls);
+
+jg:DMDistribution_parmsval = jg:DMDistribution_parmsnam;
+
+jg:DMDistribution_parmsvalSupplier = {{},{"Actual","Planned","Specified Below","None"},jg:DMDistributionStudyNameColList3,{},{},{},jg:DMDistributionStudyNameColList7,{},{},{},{}};
+
+jg:DMDistribution_tparmsvalSupplier = {{},{locale:get("TrtUse_Opt1"),locale:get("TrtUse_Opt2"),locale:get("TrtUse_Opt3"),locale:get("TrtUse_Opt4")},{},{},{},{},{},{},{},{},{}};
+
+jg:DMDistribution_nparmsvalSupplier = {{},{"Actual","Planned","Specified Below","None"},jg:DMDistributionStudyNameColList3,{},{},{},jg:DMDistributionStudyNameColList7,{},{},{},{}};
+
+jg:DMDistribution_parmstype = {1, 12, 3, 12, 6, 12, 2, 6, 6, 15, 16};
+
+jg:DMDistribution_parmRequired = {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0};
+
+jg:DMDistribution_dependencies = {{{"adsl", ".*\S.*", "Enable"}}, {}, {{"StudyName", ".*\S.*", "Enable"}, {"TrtUse", "Specified Below", "Enable"}}, {{"subjectfilters", ".*\S.*", "Enable"}}, {}, {}, {{"StudyName", ".*\S.*", "Enable"}}, {}, {}, {}, {}};
+
+jg:DMDistribution_datasetlinks = {"adsl", "", "StudyName", "subjectfilters", "", "", "StudyName", "", "", "", ""};
+
+jg:DMDistribution_dstype = {"wide", "", "", "", "", "", "", "", "", "", ""};
+
+jg:DMDistribution_folderlinks = {"", "", "", "", "", "", "", "", "", "", ""};
+
+jg:DMDistribution_colrowtextdata = {"", "", "", "", "", "", "", "", "", "", ""};
+
+jg:DMDistribution_textlinks = {"", "", "", "", "", "", "", "", "", "", ""};
+
+jg:DMDistribution_filetypelinks = {"", "", "", "", "", "", "", "", "", "", ""};
+
+jg:DMDistribution_exclude = {"", "", "", "", "", "", "", "", "", "", ""};
+
+jg:DMDistribution_descriptions = {"Select the study to analyze.", "Select to use the actual treatment received by each subject, the planned treatment (intent-to-treat), or a variable specified in the Treatment Variable field below. For many Findings graphical processes, where the Treatment Variable is used for coloring the points, the additional option None can be specified to avoid using any treatment variable. 
+
+Actual treatment maps to the variable TRT01A from ADSL and planned treatment to TRT01P. If you select Actual and TRT01A is not found in adsl, then TRT01P is used and the actual and planned treatment levels are assumed to be identical. If TRT01P is not found, then ARM is used. At least one of these variables must be in ADSL.", "Select one variable from the ADSL table, e.g. SEX, to be used as a treatment or comparison variable. The distinct levels of this variable will be compared to each other statistically. If you leave this field blank, then the variable corresponding to treatment arm is used according to what you specify in the Treatment Variable to Use parameter above.", "Select a subject filter to apply.", "Type one or more statements (joined by AND or OR) here to filter the selected study's ADSL data set before analysis; only observations/rows that meet the conditions specified are included in the analysis. Use quotes when filtering data using values of a character variable (e.g, Sex = \!"F\!") but no quotes when filtering by values of a numeric variable (e.g., AGE GE 60). 
+
+The variable names used in this statement (e.g., AGE, SEX, RACE, SITEID, USUBJID) must exactly match those in the ADSL data set. A list of these variables is displayed under Available Variables. Valid symbols and their character equivalents which can be used in a filter expression are shown with examples below. 
+
+ Filter..............................Symbol.......Example
+ Equal to..........................= or EQ.....RACE EQ \!"ASIAN\!"
+ Not equal to....................^= or NE.....RACE ^= \!"WHITE\!"
+ Less than.......................< or LT........AGE < 50
+ Greater than....................> or GT......AGE gt 60
+ Less than or equal to.......<= or LE....AGE LE 70
+ Greater than or equal to....>= or GE...AGE >= 80
+ Equal to one of a list........IN..............RACE in(\!"ASIAN\!",\!"OTHER\!")
+ Like................................LIKE..........RACE like \!"BLACK%\!"
+ 
+Use parentheses to group expressions. The syntax of this filter expression follows the syntax of SAS WHERE statements, although it is not necessary to type the word \!"WHERE\!" into the box. Please refer to Base SAS documention for further details about WHERE statements.", "Select the set of individuals to include in the analysis. This list is populated with available populations that can be defined for the current Study based on flags found in the ADSL, ADDM, or DM (and optionally SUPPDM) datasets. Possible populations include: 
+
+ All subjects in the study, excluding screen failures 
+ All subjects in the study (including screen failures) 
+ Values of the FASFL or FULLSET variables (if present) define the Full Analysis Set Population 
+ Values of the SAFFL or SAFETY variables (if present) define the Safety Population (NOTE: This is the default if it exists) 
+ Values of the ITTFL or ITT variables (if present) define theIntent-to-Treat Population 
+ Values of the PPROTFL or PPROT variables (if present) define the Per-Protocol Population 
+ Values of the COMPFL, COMPLETED, or COMPLT variables (if present) define the Completers Population 
+ Values of the RANDFL, RANDOMIZED, or RANDOM variables (if present) define the Randomized Population 
+ Values of the ENRLFL, ENROLLED, or ENRL variables (if present) define the Enrolled Population 
+ 
+
+", "Select one or more variables from the ADSL table by which to conduct separate analyses. Each unique combination of levels of these variables define a distinct analysis group of subjects. Separate graphs will be created for each group. If you leave this field blank, then the analysis will be conducted across all subjects.", "Name the output SAS data set to be created by this process. If you leave this blank, the default name adsl_dmd will be used.", "Name the output JMP script file (.jsl) containing script to display results.", "Specify a destination folder for output.", "Specify the path for SAS macros."};
+
+jg:DMDistribution_tabpane = {1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3};
+
+jg:DMDistribution_ranges = {{"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}, {"0", "0", "0", "0", "0", "0"}};
+
+jg:DMDistribution_scripts = {{"", ""}, {"", ""}, {"", ""}, {"Create Filter", "$CLINICAL_HOME/JSLFiles/LaunchDD.jsl"}, {"", ""}, {"", ""}, {"", ""}, {"", ""}, {"", ""}, {"", ""}, {"", ""}};
+
+jg:DMDistribution_scriptbuttons = {jg:DMDistribution_StudyNameScriptButton, noscript, noscript, noscript, jg:DMDistribution_WhereStmtScriptButton, noscript, noscript, jg:DMDistribution_DMDistribution_OutDataScriptButton, jg:DMDistribution_DMDistributionScriptScriptButton, noscript, noscript };
+
+jg:DMDistribution_EOLDelim = {"", "", "", "", "", "", "", "", "", "", ""};
+
+jg:DMDistribution_parmsdefvalue = {"", "Actual", "", "", "", "Safety", "", "", "", "", "$JMP_HOME\LifeSciences\MacroLib"};
+
+jg:DMDistribution_tparmsdefvalue = {"", "locale:get(\!"TrtUse_Opt1\!")", "", "", "", "Safety", "", "", "", "", "$JMP_HOME\LifeSciences\MacroLib"};
+
+jg:DMDistribution_nparmsdefvalue = 
+
+jg:DMDistribution_dependencyLists = {{3, 7}, {3}, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+
+// Get values for StudyName parameter from metadata_study.sas7bdat and CDISC Class from APMetaData
+
+if(jg:sasserver=="Local",
+	smd = open(jg:jmpLSUserDir[1]||"metadata_study.sas7bdat",invisible);
+	rc = 1;
+	, // else get metadata study table from server
+	if(lsindex ==3,
+		studylist = jg:getStudyList("Clinical");
+		rc = nitems(studylist);
+		, //else
+		if(jg:studies_exist,
+			rc = jg:SASGetFile2(jg:metapath||"metadata_study.sas7bdat",jg:jmpLSUserDir[1]||"metadata_study_from_server.sas7bdat");
+			, // else
+			rc = 0
+		)
+	);
+	if(rc,smd = open(jg:jmpLSUserDir[1]||"metadata_study_from_server.sas7bdat",invisible));
+);
+studyindex = Contains(jg:DMDistribution_parmsnam,"StudyName");
+if(studyindex,
+   jg:DMDistribution_parmsvalSupplier[studyindex] = {" "};
+   if(rc,
+		if(lsindex != 1,
+			for each row(Selected(Rowstate())=(:Type==jg:LSprod[LSindex]));
+			if(Nrows(smd << Get Selected Rows),
+				smd<<Clear Column Selection;
+				subdt = smd<<Subset(Output table name("_metadata_study"), invisible);
+				Current Data Table(subdt);
+				if(lsindex==2,
+					jg:DMDistribution_parmsvalSupplier[studyindex] = Insert(Column("StudyName")<<GetAsMatrix," ",1);
+					, //else
+					jg:DMDistribution_parmsvalSupplier[studyindex] = Column("StudyName")<<GetAsMatrix;
+				);
+				subdt << Close Window;
+			);
+			, //else 1=LS
+			if(Nrows(smd),
+				jg:DMDistribution_parmsvalSupplier[studyindex] = Insert(Column("StudyName")<<GetAsMatrix," ",1);
+			);
+		);
+	);
+   jg:DMDistribution_tparmsvalSupplier[studyindex] = jg:DMDistribution_parmsvalSupplier[studyindex];
+   jg:DMDistribution_nparmsvalSupplier[studyindex] = jg:DMDistribution_parmsvalSupplier[studyindex];
+);
+
+cstudyindex = Contains(jg:DMDistribution_parmsnam,"CombStudyName1");
+cstudyindex2 = Contains(jg:DMDistribution_parmsnam,"CombStudyName2");
+if(cstudyindex | cstudyindex2 ,
+   if(lsindex != 1,
+      for each row(Selected(Rowstate())=(:Type==jg:LSprod[LSindex]));
+      if(Nrows(smd << Get Selected Rows),
+         smd<<Clear Column Selection;
+         subdt = smd<<Subset(Output table name("_metadata_study"), invisible);
+         Current Data Table(subdt);
+         if(lsindex==2 | lsindex==3,
+            jg:DMDistribution_parmsvalSupplier[cstudyindex] = Insert(Column("StudyName")<<GetAsMatrix," ",1);
+            if(lsindex==3,
+            	jg:DMDistribution_parmsvalSupplier[cstudyindex2] = Insert(Column("StudyName")<<GetAsMatrix," ",1);
+            );
+         , //else
+            jg:DMDistribution_parmsvalSupplier[cstudyindex] = Column("StudyName")<<GetAsMatrix;
+            if(lsindex==3,
+            	jg:DMDistribution_parmsvalSupplier[cstudyindex2] = Column("StudyName")<<GetAsMatrix;
+            );
+         );
+         subdt << Close Window;
+      , //else
+         if(lsindex==2 | lsindex==3,
+            jg:DMDistribution_parmsvalSupplier[cstudyindex] = {" "};
+            if(lsindex==3,
+            	jg:DMDistribution_parmsvalSupplier[cstudyindex2] = {" "};
+            );
+         );    
+      );
+   ,//else 1=LS
+      if(Nrows(smd),
+         jg:DMDistribution_parmsvalSupplier[cstudyindex] = Insert(Column("StudyName")<<GetAsMatrix," ",1);
+         if(lsindex==3,
+         jg:DMDistribution_parmsvalSupplier[cstudyindex2] = Insert(Column("StudyName")<<GetAsMatrix," ",1);
+         );
+      , //else
+         jg:DMDistribution_parmsvalSupplier[cstudyindex] = {" "};
+         if(lsindex==3,
+         jg:DMDistribution_parmsvalSupplier[cstudyindex2] = {" "};
+         );
+      ); 
+   );
+   jg:DMDistribution_tparmsvalSupplier[cstudyindex] = jg:DMDistribution_parmsvalSupplier[cstudyindex];
+   if(lsindex==3,
+   jg:DMDistribution_tparmsvalSupplier[cstudyindex2] = jg:DMDistribution_parmsvalSupplier[cstudyindex2];
+   );
+   jg:DMDistribution_nparmsvalSupplier[cstudyindex] = jg:DMDistribution_parmsvalSupplier[cstudyindex];
+   if(lsindex==3,
+   jg:DMDistribution_nparmsvalSupplier[cstudyindex2] = jg:DMDistribution_parmsvalSupplier[cstudyindex2];
+   );
+);
+try(smd << Close Window);
+if(3==3,CClass = jg:CClassList["DMDistribution"]);
+
+// Get values for ServerName parameter from metadata_server.sas7bdat
+if(FileExists(jg:jmpLSUserDir[1]||"metadata_server.sas7bdat"),
+   smd = open(jg:jmpLSUserDir[1]||"metadata_server.sas7bdat");
+   serverindex = Contains(jg:DMDistribution_parmsnam,"ServerName");
+   if(serverindex,
+      jg:DMDistribution_parmsvalSupplier[serverindex] = Column("ServerName")<<GetAsMatrix;
+      jg:DMDistribution_nparmsvalSupplier[serverindex] = Column("ServerName")<<GetAsMatrix;
+   );
+   smd << Close Window;
+);
+
+if(
+   host is(Windows),
+      include( ConvertFilePath("$LS_HOME/Generator/DialogHelperFunctions.jsl", absolute, windows) );
+      _slash_="\";
+      if(IsEmpty(jg:_WFInclude),
+         include( ConvertFilePath("$LS_HOME/Generator/WorkFlowHelperFunctions.jsl", absolute, windows) )
+      );
+      // include( ConvertFilePath("$CLINICAL_HOME/regex.jsl", absolute, windows) );
+      // else
+      ,
+      include( ConvertFilePath("$LS_HOME/Generator/DialogHelperFunctions.jsl", absolute, POSIX) );
+      _slash_="/";
+      if(IsEmpty(jg:_WFInclude),
+      // include( ConvertFilePath("$CLINICAL_HOME/Generator/WorkFlowHelperFunctions.jsl", absolute, POSIX) )
+      );       
+      // include( ConvertFilePath("$CLINICAL_HOME/regex.jsl", absolute, POSIX) )
+);
+
+
+
+wait(0.5);
+_apinfront_=substr("jg:DMDistribution_",1,length("jg:DMDistribution_")-1);
+jg:DMDistribution_mainDialog = NewWindow(locale:get("DMDistribution_Label"),showmenu(1),showtoolbars(0),
+   VListBox(
+   
+               Button Box(locale:get("ProcessDescription_Text"),
+                  <<underlinestyle(1),
+                  <<Set Script(
+                     if(lsindex==3,
+                        Web(jg:HTMLPrefixC||jg:LSHTMLFile["DMDistribution"]||".html")
+                     ,
+                        Web(jg:HTMLPrefix||jg:LSHTMLFile["DMDistribution"]||".html")
+                     )
+                  )
+               ),
+               Textbox(" "),
+            
+               jg:DMDistribution_tp=TabBox( 
+                  
+                     locale:get("General_Tab"),
+                     
+                     VListBox(
+
+                     // ScrollBox(size(570,500),
+
+                     VListBox(
+                  
+                     VListBox(
+                           if(isEmpty(D_pickedDirectoryPath), D_pickedDirectoryPath="");
+                           jg:DMDistribution_StudyName_label =
+                           TextBox(Eval(parse(jg:DMDistribution_tparmslabel[1]))),
+                     
+                        HListBox(
+                           jg:DMDistribution_StudyName = ComboBox(jg:DMDistribution_parmsvalSupplier[1]),
+                           jg:DMDistribution_StudyNameOpenButton=ButtonBox(locale:get("OpenDataFolders_Text"),
+                              openpath=trim(jg:DMDistribution_StudyName<<GetSelected);
+										jg:CheckSASConnection();
+										if(jg:sasserver=="Local",
+											smd = open(jg:jmpLSUserDir[1]||"metadata_study.sas7bdat",invisible);
+											rc = 1;
+											, // else get metadata study table from server
+											if(jg:studies_exist,
+												rc = jg:SASGetFile2(jg:metapath||"metadata_study.sas7bdat",jg:jmpLSUserDir[1]||"metadata_study_from_server.sas7bdat")
+												, // else
+												rc = 0;
+											);
+											if(rc,smd = open(jg:jmpLSUserDir[1]||"metadata_study_from_server.sas7bdat",invisible));
+										);
+										if(rc,
+											studynamelist = Column("StudyName")<<GetAsMatrix;
+											studyindex = Contains(studynamelist,openpath);
+
+											aopenpath = Column("ADaMFolder")[studyindex];
+											sopenpath = Column("SDTMFolder")[studyindex];
+											smd << Close Window;    
+											if(jg:sasserver!="Local",
+												if(length(trim(aopenpath)),
+													SAS Submit("libname _Cadam_\!""||aopenpath||"\!";");
+												);
+
+												if(length(trim(sopenpath)),
+													SAS Submit("libname _Csdtm_ \!""||sopenpath||"\!";");      
+												);
+
+												/* kemicl add launch to JMP SAS Import Data Window */
+												try(Window(locale:get("BrowseSASData_Text"))<<Close Window(nosave));												
+												sas import data();
+												SidWin = Window(locale:get("BrowseSASData_Text"));
+												SidWin[TextBox(1)] << Delete;
+												SidWin[ComboBox(1)] << Delete;
+												SidWin[ButtonBox(3)] << Delete;
+												SidWin[ButtonBox(3)] << Delete;
+												/*
+												SidWin[ListBoxBox(1)] << NLines(20);
+												SidWin[ListBoxBox(2)] << NLines(20);
+												SidWin[ListBoxBox(3)] << NLines(20);
+												*/
+												liblist = SidWin[ListBoxBox(1)]<<Get items();
+												if(length(trim(sopenpath)),
+													SidWin[ListBoxBox(1)]<<Set Selected(loc(liblist,"_Csdtm_"));
+													,  //else
+													SidWin[ListBoxBox(1)]<<Set Selected(loc(liblist,"_Cadam_"));
+												);
+											 , //else
+											 		uselabels=0;
+													if(length(trim(aopenpath)),
+														aopenpath = ConvertFilePath(aopenpath,absolute,windows);
+														try(open(aopenpath));
+													);
+													if(length(trim(sopenpath)),
+														sopenpath = ConvertFilePath(sopenpath,absolute,windows);
+														try(open(sopenpath));
+													);	
+												);
+											
+											/*  kemicl comment out does not seem to be needed */
+											/*
+												studyExists=jg:Studies<<Contains(jg:_curr3study_ , jg:Studies);
+												if(!studyExists,
+													jg:loadStudyMetadata( jg:_curr3study_ );
+												);
+											*/
+										)
+									),
+                           
+                        
+                              jg:DMDistribution_StudyNameScriptButton=ButtonBox("");
+                               
+                              Textbox("  "),
+                              Here:helpbb1=ButtonBox("?", 
+                              // <<Set Tip(jg:DMDistribution_descriptions[1]),
+                              )
+                              //ending HListBox on next line
+                           )
+                        )
+                     ,
+
+                        //type=12
+                        VListBox(
+                           jg:DMDistribution_TrtUse_label =
+                           TextBox(Eval(parse(jg:DMDistribution_tparmslabel[2]))),
+                           HListBox(
+                           
+                              jg:DMDistribution_TrtUse = ComboBox(Evallist(jg:DMDistribution_tparmsvalSupplier[2])),
+
+                              /** Apply the default value selection. **/
+                              comboBoxItems=jg:DMDistribution_parmsvalSupplier[2];
+                              if(IsList(comboBoxItems)>0,
+                                 numComboBoxItems=NItems(comboBoxItems);
+                                 if(length(jg:DMDistribution_parmsdefvalue[2])>0,
+                                    for(xx=1,xx<=numComboBoxItems,xx++,
+                                       if(jg:DMDistribution_parmsvalSupplier[2][xx]==jg:DMDistribution_parmsdefvalue[2],
+                                          jg:DMDistribution_TrtUse<<set(xx);
+                                       );
+                                    );
+                                 );
+                              ),
+                              Textbox("  "),
+                              Here:helpbb2=ButtonBox("?", 
+                              // <<Set Tip(jg:DMDistribution_descriptions[2]),
+                              )
+                           )
+                        ),
+
+                           jg:DMDistribution_runscriptl = 1;
+                           HListBox(
+                              VListBox(TextBox(locale:get("AvailableVariables_Text")),
+                              jg:DMDistributionStudyNameColList3 = ListBox({},width(200),nlines(5))),
+                              VListBox(
+                                 
+                              HListBox(LineUpBox(NCol(2),
+                                 TextBox(" "),
+                                 jg:DMDistribution_TrtVar_label =
+                                 TextBox(Eval(parse(jg:DMDistribution_tparmslabel[3]))),
+                                 jg:DMDistribution_TrtVarButton=ButtonBox("-->",
+
+                                    selectedVarsListLeft=jg:DMDistributionStudyNameColList3<<GetSelected;
+                                    selectedVarsListRight=jg:DMDistribution_TrtVar<<GetSelected;
+                                    if(NItems(selectedVarsListRight)>0,
+                                       jg:DMDistribution_TrtVar<<RemoveSelected();
+                                       jg:DMDistribution_TrtVarButton<<SetButtonName("-->"),
+                                    //else
+                                       numtemplistitems=NItems(selectedVarsListLeft);
+                                       if(numtemplistitems>0,
+                              
+                                                jg:DMDistribution_TrtVar<<SetSelected(1,1);
+                                                jg:DMDistribution_TrtVar<<RemoveSelected();
+                                                jg:DMDistribution_TrtVar<<Append(selectedVarsListLeft[1]);
+                                             
+                                          lhsel=jg:DMDistributionStudyNameColList3<<GetSelectedIndices;
+                                          if(NItems(lhsel)>0,
+                                             jg:DMDistribution_runscriptl = 0;
+                                             for(selidx=1,selidx<=NItems(lhsel),selidx++,     
+                                              jg:DMDistributionStudyNameColList3<<SetSelected(lhsel[selidx],0)
+                                             );
+                                             jg:DMDistribution_runscriptl=1;
+                                          )
+                                       )
+                                    );
+                              
+                                 ),
+                                 jg:DMDistribution_runscriptr = 1;
+                                 HListBox(jg:DMDistribution_TrtVar = ListBox({},width(200),nlines(1)),
+                                 Textbox("  "),
+                                 Here:helpbb3=ButtonBox("?", 
+                                 // <<Set Tip(jg:DMDistribution_descriptions[3]),
+                                 ))
+                              )), //end LineUpBox
+
+                              
+                              )//end VListBox
+                           )
+                                  )), 
+                     locale:get("Filters_Tab"),
+                     
+                     VListBox(
+
+                     // ScrollBox(size(570,500),
+
+                     VListBox(
+                  
+                        //type=12
+                        VListBox(
+                           jg:DMDistribution_SubjectFilter_label =
+                           TextBox(Eval(parse(jg:DMDistribution_tparmslabel[4]))),
+                           HListBox(
+                           
+                              jg:DMDistribution_SubjectFilter = ComboBox(Evallist(jg:DMDistribution_tparmsvalSupplier[4])),
+
+                              /** Apply the default value selection. **/
+                              comboBoxItems=jg:DMDistribution_parmsvalSupplier[4];
+                              if(IsList(comboBoxItems)>0,
+                                 numComboBoxItems=NItems(comboBoxItems);
+                                 if(length(jg:DMDistribution_parmsdefvalue[4])>0,
+                                    for(xx=1,xx<=numComboBoxItems,xx++,
+                                       if(jg:DMDistribution_parmsvalSupplier[4][xx]==jg:DMDistribution_parmsdefvalue[4],
+                                          jg:DMDistribution_SubjectFilter<<set(xx);
+                                       );
+                                    );
+                                 );
+                              ),
+                              Textbox("  "),
+                              Here:helpbb4=ButtonBox("?", 
+                              // <<Set Tip(jg:DMDistribution_descriptions[4]),
+                              )
+                           )
+                        ),
+
+                        // type=6
+                        if("WhereStmt"!="ServerOutPath" | MetaIsConnected() | jg:sasserver!="Local",                      
+                           VListBox(
+
+                           jg:DMDistribution_WhereStmt_label =
+                           TextBox(Eval(parse(jg:DMDistribution_tparmslabel[5]))),
+                           
+                           if(Munger("WhereStmt",1,"WhereStmt")==0 & 
+                              Munger("WhereStmt",1,"PredWhere")==0 &
+                              Munger("WhereStmt",1,"PredClassWhere")==0 &
+                              Munger("WhereStmt",1,"WhereEddmt")==0 &
+                              Munger("WhereStmt",1,"WhereTests")== 0 
+                              ,                             
+                              textinsert="  ";
+                              extraspace=" ";
+                              wherestmt = 1
+                           ,//else
+                              textinsert="  "||locale:get("Where_Text")||" ";
+                              extraspace=" ";
+                              wherestmt = 0
+                           );
+                           if(0==1, extraspace="");
+                           HListBox(
+                              TextBox(textinsert),
+                              jg:DMDistribution_WhereStmt=TextEditBox(""||extraspace, passwordstyle(0),
+                                 <<Script(
+                                    if(0>0,
+                                       textstring = Trim(jg:DMDistribution_WhereStmt<<Get Text);
+                                       if ( Length( textstring) > 0,
+                                          jg:DMDistribution_WhereStmt<<Set Text(Substr(textstring,1,0));
+                                          New Window(locale:get("WarningDotDotDot_Text"),showmenu(0),showtoolbars(0),
+											TextBox(locale:fill(locale:get("ThisFieldCanOnlyContainXCharactersStringTruncated"),
+												{char(0)}))
+										  )
+                                       )
+                                    )
+                                 )
+                              ),
+                              ButtonBox(locale:get("Clear_Text"),jg:DMDistribution_WhereStmt << Set Text (""); jg:updateControl(3, "DMDistribution", 5);),
+                           
+                                    jg:DMDistribution_WhereStmtScriptButton=ButtonBox("");
+                              
+                              Textbox("  "),
+                              Here:helpbb5=ButtonBox("?", 
+                               //<<Set Tip(jg:DMDistribution_descriptions[5]),
+                              )
+                           )
+                        )
+                     ),
+
+                     TextBox(" ",<<set font size(1)),
+                     PanelBox(locale:get("SelectAnalysisPopulation_PanelBox"),Vlistbox(
+                        
+                        //type=12
+                        VListBox(
+                           jg:DMDistribution_PopulationSet_label =
+                           TextBox(Eval(parse(jg:DMDistribution_tparmslabel[6]))),
+                           HListBox(
+                           
+                              jg:DMDistribution_PopulationSet = ComboBox(Evallist(jg:DMDistribution_tparmsvalSupplier[6])),
+
+                              /** Apply the default value selection. **/
+                              comboBoxItems=jg:DMDistribution_parmsvalSupplier[6];
+                              if(IsList(comboBoxItems)>0,
+                                 numComboBoxItems=NItems(comboBoxItems);
+                                 if(length(jg:DMDistribution_parmsdefvalue[6])>0,
+                                    for(xx=1,xx<=numComboBoxItems,xx++,
+                                       if(jg:DMDistribution_parmsvalSupplier[6][xx]==jg:DMDistribution_parmsdefvalue[6],
+                                          jg:DMDistribution_PopulationSet<<set(xx);
+                                       );
+                                    );
+                                 );
+                              ),
+                              Textbox("  "),
+                              Here:helpbb6=ButtonBox("?", 
+                              // <<Set Tip(jg:DMDistribution_descriptions[6]),
+                              )
+                           )
+                        )
+               ))
+                     ,
+
+                     TextBox(" ",<<set font size(1)),
+                     PanelBox(locale:get("SeparateAnalysisintoGroups_PanelBox"),Vlistbox(
+                        
+                           jg:DMDistribution_runscriptl = 1;
+                           HListBox(
+                              VListBox(TextBox(locale:get("AvailableVariables_Text")),
+                              jg:DMDistributionStudyNameColList7 = ListBox({},width(200),nlines(5))),
+                              VListBox(
+                                 
+                              HListBox(LineUpBox(NCol(2),
+                                 TextBox(" "),
+                                 jg:DMDistribution_DesignByVars_label =
+                                 TextBox(Eval(parse(jg:DMDistribution_tparmslabel[7]))),
+                                 jg:DMDistribution_DesignByVarsButton=ButtonBox("-->",
+
+                                    selectedVarsListLeft=jg:DMDistributionStudyNameColList7<<GetSelected;
+                                    selectedVarsListRight=jg:DMDistribution_DesignByVars<<GetSelected;
+                                    if(NItems(selectedVarsListRight)>0,
+                                       jg:DMDistribution_DesignByVars<<RemoveSelected();
+                                       jg:DMDistribution_DesignByVarsButton<<SetButtonName("-->"),
+                                    //else
+                                       numtemplistitems=NItems(selectedVarsListLeft);
+                                       if(numtemplistitems>0,
+                              
+                                                jg:DMDistribution_DesignByVars<<Append(selectedVarsListLeft);
+                                             
+                                          lhsel=jg:DMDistributionStudyNameColList7<<GetSelectedIndices;
+                                          if(NItems(lhsel)>0,
+                                             jg:DMDistribution_runscriptl = 0;
+                                             for(selidx=1,selidx<=NItems(lhsel),selidx++,     
+                                              jg:DMDistributionStudyNameColList7<<SetSelected(lhsel[selidx],0)
+                                             );
+                                             jg:DMDistribution_runscriptl=1;
+                                          )
+                                       )
+                                    );
+                              
+                                 ),
+                                 jg:DMDistribution_runscriptr = 1;
+                                 HListBox(jg:DMDistribution_DesignByVars = ListBox({},width(200),nlines(2)),
+                                 Textbox("  "),
+                                 Here:helpbb7=ButtonBox("?", 
+                                 // <<Set Tip(jg:DMDistribution_descriptions[7]),
+                                 ))
+                              )), //end LineUpBox
+
+                              
+                              )//end VListBox
+                           )
+                                 
+               ))
+                      )), 
+                     locale:get("Output_Tab"),
+                     
+                     VListBox(
+
+                     // ScrollBox(size(570,500),
+
+                     VListBox(
+                  
+                        // type=6
+                        if("DMDistribution_OutData"!="ServerOutPath" | MetaIsConnected() | jg:sasserver!="Local",                      
+                           VListBox(
+
+                           jg:DMDistribution_DMDistribution_OutData_label =
+                           TextBox(Eval(parse(jg:DMDistribution_tparmslabel[8]))),
+                           
+                           if(Munger("DMDistribution_OutData",1,"WhereStmt")==0 & 
+                              Munger("DMDistribution_OutData",1,"PredWhere")==0 &
+                              Munger("DMDistribution_OutData",1,"PredClassWhere")==0 &
+                              Munger("DMDistribution_OutData",1,"WhereEddmt")==0 &
+                              Munger("DMDistribution_OutData",1,"WhereTests")== 0 
+                              ,                             
+                              textinsert="  ";
+                              extraspace=" ";
+                              wherestmt = 1
+                           ,//else
+                              textinsert="  "||locale:get("Where_Text")||" ";
+                              extraspace=" ";
+                              wherestmt = 0
+                           );
+                           if(0==1, extraspace="");
+                           HListBox(
+                              TextBox(textinsert),
+                              jg:DMDistribution_DMDistribution_OutData=TextEditBox(""||extraspace, passwordstyle(0),
+                                 <<Script(
+                                    if(32>0,
+                                       textstring = Trim(jg:DMDistribution_DMDistribution_OutData<<Get Text);
+                                       if ( Length( textstring) > 32,
+                                          jg:DMDistribution_DMDistribution_OutData<<Set Text(Substr(textstring,1,32));
+                                          New Window(locale:get("WarningDotDotDot_Text"),showmenu(0),showtoolbars(0),
+											TextBox(locale:fill(locale:get("ThisFieldCanOnlyContainXCharactersStringTruncated"),
+												{char(32)}))
+										  )
+                                       )
+                                    )
+                                 )
+                              ),
+                              ButtonBox(locale:get("Clear_Text"),jg:DMDistribution_DMDistribution_OutData << Set Text (""); jg:updateControl(3, "DMDistribution", 8);),
+                           
+                                    jg:DMDistribution_DMDistribution_OutDataScriptButton=ButtonBox("");
+                              
+                              Textbox("  "),
+                              Here:helpbb8=ButtonBox("?", 
+                               //<<Set Tip(jg:DMDistribution_descriptions[8]),
+                              )
+                           )
+                        )
+                     ),
+
+                        // type=6
+                        if("DMDistributionScript"!="ServerOutPath" | MetaIsConnected() | jg:sasserver!="Local",                      
+                           VListBox(
+
+                           jg:DMDistribution_DMDistributionScript_label =
+                           TextBox(Eval(parse(jg:DMDistribution_tparmslabel[9]))),
+                           
+                           if(Munger("DMDistributionScript",1,"WhereStmt")==0 & 
+                              Munger("DMDistributionScript",1,"PredWhere")==0 &
+                              Munger("DMDistributionScript",1,"PredClassWhere")==0 &
+                              Munger("DMDistributionScript",1,"WhereEddmt")==0 &
+                              Munger("DMDistributionScript",1,"WhereTests")== 0 
+                              ,                             
+                              textinsert="  ";
+                              extraspace=" ";
+                              wherestmt = 1
+                           ,//else
+                              textinsert="  "||locale:get("Where_Text")||" ";
+                              extraspace=" ";
+                              wherestmt = 0
+                           );
+                           if(0==1, extraspace="");
+                           HListBox(
+                              TextBox(textinsert),
+                              jg:DMDistribution_DMDistributionScript=TextEditBox(""||extraspace, passwordstyle(0),
+                                 <<Script(
+                                    if(0>0,
+                                       textstring = Trim(jg:DMDistribution_DMDistributionScript<<Get Text);
+                                       if ( Length( textstring) > 0,
+                                          jg:DMDistribution_DMDistributionScript<<Set Text(Substr(textstring,1,0));
+                                          New Window(locale:get("WarningDotDotDot_Text"),showmenu(0),showtoolbars(0),
+											TextBox(locale:fill(locale:get("ThisFieldCanOnlyContainXCharactersStringTruncated"),
+												{char(0)}))
+										  )
+                                       )
+                                    )
+                                 )
+                              ),
+                              ButtonBox(locale:get("Clear_Text"),jg:DMDistribution_DMDistributionScript << Set Text (""); jg:updateControl(3, "DMDistribution", 9);),
+                           
+                                    jg:DMDistribution_DMDistributionScriptScriptButton=ButtonBox("");
+                              
+                              Textbox("  "),
+                              Here:helpbb9=ButtonBox("?", 
+                               //<<Set Tip(jg:DMDistribution_descriptions[9]),
+                              )
+                           )
+                        )
+                     ),
+
+                     //type=15
+                     if("OutPath"!="ServerOutPath" | MetaIsConnected() | jg:sasserver!="Local",VListBox(
+                        jg:DMDistribution_OutPath_label =
+                        TextBox(Eval(parse(jg:DMDistribution_tparmslabel[10]))),
+                        HListBox(TextBox("  "),
+                           if(isEmpty(D_pickedDirectoryPath),D_pickedDirectoryPath="");
+                     jg:DMDistribution_OutPath=TextEditBox("                                                                                                                          "),
+                           jg:DMDistribution_OutPathButton=ButtonBox(locale:get("Choose_Text"),
+                              if(MetaIsConnected()==0 & jg:sasserver=="Local",
+                                 Try(
+                                    D_pickedDirectoryPath = Pick Directory( locale:get("SelectaDirectory_Text"), D_pickedDirectoryPath, ShowFiles(True), ShowEdit(True) ),
+                                    D_pickedDirectoryPath = Pick Directory( locale:get("SelectaDirectory_Text"), , ShowFiles(True), ShowEdit(True) )
+                                 );
+                                 
+                              ,
+                                 if("OutPath"!="ServerOutPath",
+                                 	if("jg:DMDistribution_"=="jg:AddStudyLocal_",
+                                    	D_pickedDirectoryPath=jg:FolderChooserDialog("","","",1,1)
+                                    	, // else
+                                    	D_pickedDirectoryPath=jg:FolderChooserDialog("","","",1)
+                                    )
+                                 	, // else
+                                    if(substr(trim("OutPath"),-6)!="InData" & substr(trim("OutPath"),-10)!="AnnoInData" ,
+                                       D_pickedDirectoryPath=jg:FolderChooserDialog("","","",1,1),
+                                       D_pickedDirectoryPath=jg:FolderChooserDialog("","","",1,1,1)
+                                    )
+                                 )
+                              );
+                              if (trim(D_pickedDirectoryPath)!="",
+                                 if(MetaIsConnected()==0 & jg:sasserver=="Local",
+                                    if(hostis(windows),
+                                       D_pickedDirectoryPath=ConvertFilePath(D_pickedDirectoryPath,absolute,windows),
+                                       D_pickedDirectoryPath=ConvertFilePath(D_pickedDirectoryPath,absolute,POSIX)
+                                    );
+                                  );         
+                                 jg:DMDistribution_OutPathfilenames = {};
+                                 if(MetaIsConnected()==0 & jg:sasserver=="Local",
+                                    InFileList = FilesInDirectory( D_pickedDirectoryPath );
+                                    ,
+                                    if(!isEmpty(jg:_fromLocalflag), 
+                                       if (jg:_fromLocalflag,
+                                          here:FC_Flag = 0;
+                                          jg:_fromLocalflag=0
+                                    ));
+                                    InFileList= SortList(jg:_GetFileList(_InPath_=D_pickedDirectoryPath,_Extension_="",
+                                       _IncludedPrefix_ = "",_ExcludedPrefix_ = "", _IncludedSettingNamePrefix_ = "",
+                                       _ExcludedSettingNamePrefix_ = "",_TrimPrefix_ = 0, _ShowNoSelection_ = 0,
+                                       _Double__Flag_ = 0,  _ReturningType_=1));
+                                 );
+                                 filetl = jg:DMDistribution_filetypelinks[10];
+                                 if(IsMissing(filetl),
+                                    jg:DMDistribution_OutPathfilenames = InFileList,
+                                    // else
+                                    _Extension_ = Trim(jg:getParmValue("DMDistribution", jg:getParmNum("DMDistribution", filetl)));
+                                    if(substr(_Extension_,1,1)=="*",
+                                       _Extension_=substr(_Extension_,2,length(_Extension_)-1)
+                                    );                                  
+                                    LenE = length(_Extension_);
+                                    if (LenE > 0,
+                                       if(IsList(InFileList),
+                                          regext = ".?" || lowercase(_Extension_);
+                                          // show(regext);
+                                          for(i=1, i<=NItems(InFileList), i++,
+                                             if(jg:matchregex(regext,lowercase(InFileList[i])),
+                                                InsertInto(jg:DMDistribution_OutPathfilenames,InFileList[i])
+                                             );
+                                          );
+                                       ),
+                                       // else
+                                       if(IsList(InFileList),
+                                          for(i=1, i<=NItems(InFileList), i++,
+                                             InFileList2 = FilesInDirectory( D_pickedDirectoryPath ||InFileList[i]);
+                                             if (n items(InFileList2)==0,
+                                                InsertInto(jg:DMDistribution_OutPathfilenames,InFileList[i]))
+                                             // jg:DMDistribution_OutPathfilenames = InFileList
+                                          )
+                                       )
+                                    )
+                                 );
+                                 if (isList(jg:DMDistribution_OutPathfilenames),
+                                    nFileTotal = nItems(jg:DMDistribution_OutPathfilenames),
+                                    nFileTotal = 0
+                                 );
+                              // comment out following lines until we have an option to suppress the error message
+                              //if ( nFileTotal==0 & !IsMissing(filetl),
+                              //    ZFileDlg = New Window("JMP Clinical Message",
+                              //       HListBox(
+                              //          VListBox(
+                              //             ztb=TextBox("ERROR: No files with the specified extension found. Please choose a different folder."),
+                              //             ztb<<FontColor(3);
+                              //          )
+                              //       ),
+                              //       << SetWindowIcon("$LS_HOME\Documentation\Icons\JMPClinicalApp.ico")
+                              //    ),
+                                    jg:DMDistribution_OutPath << SetText(D_pickedDirectoryPath);
+                     
+                                       jg:updateControl(3, "DMDistribution", 10);
+                                 //commented out for now(see above)  ) //ends if nFileTotal == 0
+                                 )//ends pickedDirectoryPath
+                              ),//ends Choose button
+                              jg:DMDistribution_OutPathOpenButton=ButtonBox(locale:get("Open_Text"),
+                                 openpath=trim(jg:DMDistribution_OutPath<<GetText);
+                                 // for client-server, check if folder exists on server
+                                 existsonserver = 0;
+                                 if(jg:sasserver!="Local",
+                                    existsonserver = jg:FolderExistsServer(openpath);
+                                    if(existsonserver,
+                                       snames = SortList(jg:SASGetFileNamesInPath2(openpath));
+                                       NewWindow(openpath,showmenu(0),showtoolbars(0),
+                                          TextBox("JMP Clinical currently does not offer a server file navigator, but " ||
+                                          "the following files and directories are in the selected server directory:"),
+                                          lb = ListBox(snames,<<SetSize(350,400))
+                                       );
+                                    );
+                                    // SASDisconnect();
+                                 );
+                                 if(!existsonserver,
+                                    Here:uselabels=0;
+                                    try(Open(openpath))
+                                 )
+                              ),                            
+                              Textbox("  "),
+                              Here:helpbb10=ButtonBox("?", 
+                              // <<Set Tip(jg:DMDistribution_descriptions[10]),
+                              )
+                              //ending HListBox on next line
+                           )
+                        ))
+                        ,
+ )), 
+                     ),//end TabBox
+                     VListBox(
+                      TextBox("   * "||locale:get("RequiredParameter_Text")),
+                      TextBox(" "),
+							 if(IsEmpty(jg:inreview),jg:inreview = 0);							 	
+                      HListBox(
+                      	if(jg:inreview,
+                      		HListBox(
+										ButtonBox(locale:get("UpdateReview_Text"),
+											jg:setSavedSettingsDir(jg:revfolder);
+											jg:settingssaveok(3,"DMDistribution", jg:rapname);
+											jg:closeJMPBIODlg("DMDistribution");
+											jg:SaveReviewButton << Enable(1);
+										)
+									)
+								),
+								HListBox(
+									ButtonBox(locale:get("Run_Text"),
+										// code to trap double clicking
+										if(IsEmpty(jg:buttonClick),jg:buttonClick = 0);
+										timediff = today() - jg:buttonClick;
+										// show(timediff);
+										if(timediff > 1,
+											jg:buttonClick = today();
+											// apply current settings for clinical
+											if(3==3 & Contains("DMDistribution","AddStudyLocal")==0,
+												savedSettingFileName="_Defaults_";
+												jg:setSavedSettingsDir(jg:jmpLSUserDir[3]);
+												eval(parse( "jg:_Defaultexists_"||char(jg:LSindex)||" = 1" ));
+												//jg:_Defaultexists_=1;
+												SavedSettings = jg:settingssaveok(3,"DMDistribution", savedSettingFileName);
+												eval(parse( "jg:defaultSavedSettings_"||char(jg:LSIndex)||"=SavedSettings" ));
+											);
+											jg:_diagpos_ = jg:DMDistribution_mainDialog << Get Window Position;
+											jg:runProcess(3,"DMDistribution")
+										)
+									),
+				
+										ButtonBox(locale:get("Settings_Text"),
+											if(!isEmpty(jg:sdw), jg:sdw<<Close Window);
+											jg:sdw = New Window(locale:get("SettingsDialog_Text"),
+												VListBox(
+													lineupbox(ncol(4),
+													spacerbox(),
+
+                    
+														ButtonBox(locale:get("Save_Text")||"...", 
+															if(!isEmpty(jg:sdw), jg:sdw<<Close Window);
+															jg:saveSettings(3,"DMDistribution"); 
+														),
+                                               
+														spacerbox(),
+														textbox(locale:get("Savecurrentsettings_Text")),
+														spacerbox(),
+                                                        
+														ButtonBox(locale:get("Load_Text")||"...", 
+														if(!isEmpty(jg:sdw), jg:sdw<<Close Window);
+														jg:loadSettings(3,"DMDistribution"); 
+														),
+                                                     
+														spacerbox(),
+														textbox(locale:get("Loadsettings_Text")),
+														spacerbox(),
+                                                        
+														ButtonBox(locale:get("Apply_Text"),
+															savedSettingFileName="_Defaults_";
+															jg:setSavedSettingsDir(jg:jmpLSUserDir[3]);
+															eval(parse( "jg:_Defaultexists_"||char(jg:LSindex)||" = 1" ));
+															//jg:_Defaultexists_=1;
+															SavedSettings = jg:settingssaveok(3,"DMDistribution", savedSettingFileName);
+															eval(parse( "jg:defaultSavedSettings_"||char(jg:LSIndex)||"=SavedSettings" ));
+															if(!isEmpty(jg:sdw), jg:sdw<<Close Window);
+															sasmsgwindow=New Window(locale:fill(locale:get("JMPXMessage_Text"),
+												  {if ("Clinical" == "Clinical", locale:get("Clinical_Text"),
+													"Clinical" == "Life Sciences", locale:get("LifeSciences_Text"),
+													"Clinical" == "Genomics", "Genomics",
+													"-"
+													  );}),showmenu(0),showtoolbars(0),
+																tb=TextBox(locale:fill(locale:get("CurrentParamValsSetAsDefForOthersToClearRunXGUCPD_Text"), {"Clinical"})),
+																tb << Font Color(5);
+																tb << Set Wrap(350),
+																<< SetWindowIcon("$LS_HOME\Documentation\Icons\JMPClinicalApp.ico")
+															);
+														),
+                                                  
+														spacerbox(),
+														textbox(locale:get("Applycurrentsettingsforallprocesses_Text")),
+														spacerbox(),
+					                                         
+                                    
+														ButtonBox(locale:get("SetasDefault_Text"),
+															if(hostis(windows),
+																jg:setSavedSettingsDir(jg:jmpLSUserDir[LSIndex]||"MyDefaultSettings\"),
+																jg:setSavedSettingsDir(jg:jmpLSUserDir[LSIndex]||"MyDefaultSettings/"),
+															);
+															jg:settingssaveok(3,"DMDistribution", "MyDefault");
+															if(!isEmpty(jg:sdw), jg:sdw<<Close Window);
+															sasmsgwindow=New Window(locale:fill(locale:get("JMPXMessage_Text"),
+												  {if ("Clinical" == "Clinical", locale:get("Clinical_Text"),
+													"Clinical" == "Life Sciences", locale:get("LifeSciences_Text"),
+													"Clinical" == "Genomics", "Genomics",
+													"-"
+													  );}),showmenu(0),showtoolbars(0),
+																tb=TextBox(locale:get("CurrentParamValsSetAsDefForThisProcess_Text")),
+																tb << Font Color(5);
+																tb << Set Wrap(350),
+																<< SetWindowIcon("$LS_HOME\Documentation\Icons\JMPClinicalApp.ico")
+															);
+														),
+                                                  
+														spacerbox(),
+														textbox(locale:get("Makecurrentsettingsdefaultforcurrentprocess_Text")),
+														spacerbox(),
+					                                      
+														ButtonBox(locale:get("Reset_Text"),
+															if(hostis(windows),
+																_defsetting_=jg:jmpLSUserDir[LSIndex]||"MyDefaultSettings\"||"DMDistribution"||"__MyDefault.sas",
+																_defsetting_=jg:jmpLSUserDir[LSIndex]||"MyDefaultSettings/"||"DMDistribution"||"__MyDefault.sas"
+															);
+															if(File Exists(_defsetting_),
+																jg:runWithSettings(3,"DMDistribution", _defsetting_, 1)
+																,
+																jg:setDefaultParmValues(3,"DMDistribution")
+															);
+															if(3==3,
+																if(jg:getParmNum("DMDistribution","StudyName")>0,
+																	try(jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","StudyName"),jg:getParmValue("DMDistribution",jg:getParmNum("DMDistribution","StudyName"))))
+																)
+															);
+															if(!isEmpty(jg:sdw), jg:sdw<<Close Window);
+													 ),
+                                                     
+														spacerbox(),
+														textbox(locale:get("Loaddefaultsettingsforthecurrentprocess_Text")),
+
+														//We no longer need this on the dialogs.
+														/**
+                                                  
+														ButtonBox(locale:get("UserGuide_Text"),
+															<<Set Script(
+																try(
+																	if(lsindex==3,
+																		Web(jg:HTMLPrefixC||"documentation.shtml")
+																		,
+																		Web(jg:HTMLPrefix||"documentation.shtml")
+																	)
+																)
+															)
+														),
+                                                     
+														**/
+													)
+
+												) //end VListBox
+											) //end Settings Window
+										), //end settings button
+                 
+                        		ButtonBox(locale:get("Cancel_Text"),jg:closeJMPBIODlg("DMDistribution");if(!isEmpty(jg:sdw), jg:sdw<<Close Window);),
+            				), // end HListBox
+                      )
+                     )
+                  )//end outer VListBox
+               );
+               try(Here:helpbb1<<UnderlineStyle(1));try(Here:helpbb1<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[1],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=1;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb2<<UnderlineStyle(1));try(Here:helpbb2<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[2],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=2;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb3<<UnderlineStyle(1));try(Here:helpbb3<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[3],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=3;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb4<<UnderlineStyle(1));try(Here:helpbb4<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[4],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=4;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb5<<UnderlineStyle(1));try(Here:helpbb5<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[5],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=5;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb6<<UnderlineStyle(1));try(Here:helpbb6<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[6],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=6;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb7<<UnderlineStyle(1));try(Here:helpbb7<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[7],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=7;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb8<<UnderlineStyle(1));try(Here:helpbb8<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[8],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=8;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb9<<UnderlineStyle(1));try(Here:helpbb9<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[9],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=9;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb10<<UnderlineStyle(1));try(Here:helpbb10<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[10],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=10;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );try(Here:helpbb11<<UnderlineStyle(1));try(Here:helpbb11<<Set Script(
+                     htmlparmlabel2 = Substitute(jg:DMDistribution_parmslabel[11],"* ","");                     
+                     Try(
+                        htmllink = jg:LSParameterHTML[uppercase(jg:LSDocFolderList["DMDistribution"]||trim(htmlparmlabel2))];
+                        if(lsindex==3,
+                           Web(jg:HTMLPrefixC||htmllink||".html")
+                        ,                          
+                           Web(jg:HTMLPrefix||htmllink||".html")
+                        )
+                     ,
+                        helpparm=11;
+                        jg:showHelpDialog("DMDistribution")
+                     )
+                     )
+                  );
+               // new code for MyDefault.sas;
+               if(hostis(windows),
+                  _defsetting_=jg:jmpLSUserDir[LSIndex]||"MyDefaultSettings\"||"DMDistribution"||"__MyDefault.sas",
+                  _defsetting_=jg:jmpLSUserDir[LSIndex]||"MyDefaultSettings/"||"DMDistribution"||"__MyDefault.sas"
+               );
+               
+               if(!isEmpty(jg:_DefaultOutPath_),
+                  if(length(trim(jg:_DefaultOutPath_)),
+                  	if(jg:getParmNum("DMDistribution","OutPath")>0,
+                     	jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","OutPath"),trim(jg:_DefaultOutPath_));
+                     )
+                  )
+               );             
+
+					/*
+               if(!isEmpty(jg:_DefaultServerOutPath_),
+                  if(length(trim(jg:_DefaultServerOutPath_)),
+                  	if(jg:getParmNum("DMDistribution","ServerOutPath")>0,
+                     	jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","ServerOutPath"),trim(jg:_DefaultServerOutPath_));
+                     )
+                  )
+               );
+               */
+               
+               if(!isEmpty(jg:_DefaultLibPath_),
+                  if(length(trim(jg:_DefaultLibPath_)),
+                     if(jg:getParmNum("DMDistribution","CDFInPath")>0,
+                        jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","CDFInPath"),trim(jg:_DefaultLibPath_))
+                     );
+                  )
+               ); 
+               
+               if(!isEmpty(jg:_DefaultSDTMInPath_) & lsindex==3,
+                  if(length(trim(jg:_DefaultSDTMInPath_)),
+                     if(jg:getParmNum("DMDistribution","InPath")>0,
+                        jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","InPath"),trim(jg:_DefaultSDTMInPath_))
+                     );
+                  )
+               );    
+               
+               if(!isEmpty(jg:_DefaultAInPath_) & lsindex==3,
+                  if(length(trim(jg:_DefaultAInPath_)),
+                     if(jg:getParmNum("DMDistribution","AInPath")>0,
+                        jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","AInPath"),trim(jg:_DefaultAInPath_))
+                     );
+                  )
+               );    
+               
+               if(3 > 1,
+                  if(!isEmpty(jg:_curr3study_),
+                     try(jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","StudyName"),trim(jg:_curr3study_)));
+                  )
+               ,  if(!isEmpty(jg:LSindex),
+                     if(jg:LSindex==2,
+                        if(!isEmpty(jg:_curr2study_),
+                           try(jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","StudyName"),trim(jg:_curr2study_)));
+                        )
+                     , //else
+                        if(!isEmpty(jg:_curr3study_),
+                           try(jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","StudyName"),trim(jg:_curr3study_)));
+                        )                    
+                     )
+                  )
+               );    
+               
+               // apply default settings in sequence
+               if(FileExists(_defsetting_),
+                  jg:runWithSettings(3,"DMDistribution",_defsetting_,1)
+               );
+               if(studyindex,
+               	studyname = jg:getParmValue("DMDistribution",jg:getParmNum("DMDistribution","StudyName"));
+               	if ( studyname != " " & studyname != "",
+							if(jg:StudyType[studyname]=="Genomics",
+								lsii = 2
+								, // else
+								lsii =3
+							);
+							idp = jg:getParmNum("DMDistribution","InData");
+							if(idp,
+								ctype = jg:DMDistribution_dstype[idp]	
+								, // else
+								ctype = "wide"
+							);
+							if(ctype=="tall",
+               			_defset_ = jg:jmpLSUserDir[lsii]||"MetaData\"||studyname||"\AssignDefaultDataSetsTall__"||studyname||".sas"
+               			, // else
+               			_defset_ = jg:jmpLSUserDir[lsii]||"MetaData\"||studyname||"\AssignDefaultDataSets__"||studyname||".sas";
+               		);
+               		//show(_defset_);
+							if(FileExists(_defset_),
+								jg:runWithSettings(3,"DMDistribution",_defset_,1)
+							);
+							if(ctype=="wide",
+								indatapath = jg:getParmValue("DMDistribution",idp);
+								if(length(trim(indatapath)),
+									libmem = jg:PathName(indatapath);
+									_defset_ = jg:jmpLSUserDir[lsii]||"MetaData\"||studyname||"\AssignWideVariableRoles__"||libmem[2]||".sas";
+									if(FileExists(_defset_),
+										jg:runWithSettings(3,"DMDistribution",_defset_,1)
+									);
+								)
+							)
+						)
+					);
+               if( eval(parse( "!isEmpty(jg:_Defaultexists_"||char(jg:LSindex)||")" )), 
+               	if(eval(parse( "jg:_Defaultexists_"||char(jg:LSindex)||" == 1" )),
+               //if(!isEmpty(jg:_Defaultexists_) & jg:_Defaultexists_==1,
+                     workflow = 0;
+                     if(!isEmpty(jg:openingfromworkflow),
+                        if(jg:openingfromworkflow==1,workflow=1)
+                     );
+                     if(!workflow,jg:runWithSettings(3,"DMDistribution",eval(parse("jg:defaultSavedSettings_"||char(jg:LSIndex))),1))
+                  );
+               );
+               
+               //wait(0.3);
+               /*
+               if(!isEmpty(jg:serveroutpath),
+                  if(length(trim(jg:serveroutpath)),
+                     jg:setCurrentParmValue(3,"DMDistribution", jg:getParmNum("DMDistribution","ServerOutPath"),trim(jg:serveroutpath));
+                  )
+               );             
+               */
+               
+               jg:DMDistribution_mainDialog<<Bring Window to Front;
+               
+               jg:SetIcon(jg:DMDistribution_mainDialog,"DMDistribution");
+             
+                     jg:DMDistribution_StudyName << SetScript(
+                        parmval = jg:getParmValue("DMDistribution",1);   
+                        jg:setCurrentParmValue(3,"DMDistribution", 1, parmval);
+                        /*  Defect S0982314 JMP cannot use <<Set or <<Set Selected messages to run some display box */
+                        if(contains("jg:DMDistribution_","ManageStudies"),
+                        	jg:DMDistribution_StudyName << Set(Loc(jg:study3list,parmval));
+                        );
+                        jg:updateControl(3, "DMDistribution", 1);
+                  
+                        // Set Current Study on Starter with Study selected on dialog
+                        studylist = jg:getStudyList("Clinical");
+                        prev_study = jg:_curr3study_;
+                        jg:loadStudyMetadata(jg:_curr3study_);
+                        jg:_rb3study_ << Set(Loc(studylist,parmval));
+                        /* Due to defect S0767103, need to manually run combobox script when setting via JSL */
+                        jg:updateStudyStuff(3);
+                     ); //end Set Script
+                     
+                     if(isEmpty(jg:_curr3study_),
+                        parmval = jg:getParmValue("DMDistribution",1);
+                        jg:setCurrentParmValue(3,"DMDistribution", 1, parmval);
+                        jg:updateControl(3, "DMDistribution", 1);
+                     );
+                   
+										if ("OutPath"!="ServerOutPath" | MetaIsConnected() | jg:sasserver!="Local",
+											jg:DMDistribution_OutPath << SetScript(
+												parmval = jg:getParmValue("DMDistribution",10);
+												jg:setCurrentParmValue(3,"DMDistribution", 10, parmval);
+												jg:updateControl(3, "DMDistribution", 10)
+											);
+										);
+									 jg:DMDistribution_TrtUse<<SetScript(jg:updateControl(3, "DMDistribution", 2));
+                     
+                        if("WhereStmt"!="ServerOutPath" | MetaIsConnected() | jg:sasserver!="Local",
+                           if(Munger("WhereStmt",1,"WhereStmt")==0 & 
+                              Munger("WhereStmt",1,"PredWhere")==0 &
+                              Munger("WhereStmt",1,"PredClassWhere")==0 &
+                              Munger("WhereStmt",1,"WhereEddmt")==0
+                              ,                       
+                              jg:DMDistribution_WhereStmt<<SetNLines(1)<<SetWidth(400)
+                           , //else
+                              jg:DMDistribution_WhereStmt<<SetNLines(1)<<SetWidth(363)
+                           );
+                        );
+                        if("DMDistribution_OutData"!="ServerOutPath" | MetaIsConnected() | jg:sasserver!="Local",
+                           if(Munger("DMDistribution_OutData",1,"WhereStmt")==0 & 
+                              Munger("DMDistribution_OutData",1,"PredWhere")==0 &
+                              Munger("DMDistribution_OutData",1,"PredClassWhere")==0 &
+                              Munger("DMDistribution_OutData",1,"WhereEddmt")==0
+                              ,                       
+                              jg:DMDistribution_DMDistribution_OutData<<SetNLines(1)<<SetWidth(400)
+                           , //else
+                              jg:DMDistribution_DMDistribution_OutData<<SetNLines(1)<<SetWidth(363)
+                           );
+                        );
+                        if("DMDistributionScript"!="ServerOutPath" | MetaIsConnected() | jg:sasserver!="Local",
+                           if(Munger("DMDistributionScript",1,"WhereStmt")==0 & 
+                              Munger("DMDistributionScript",1,"PredWhere")==0 &
+                              Munger("DMDistributionScript",1,"PredClassWhere")==0 &
+                              Munger("DMDistributionScript",1,"WhereEddmt")==0
+                              ,                       
+                              jg:DMDistribution_DMDistributionScript<<SetNLines(1)<<SetWidth(400)
+                           , //else
+                              jg:DMDistribution_DMDistributionScript<<SetNLines(1)<<SetWidth(363)
+                           );
+                        );
+                           if("OutPath"!="ServerOutPath" | MetaIsConnected() | jg:sasserver!="Local",
+                              jg:DMDistribution_OutPath<<SetNLines(2)<<SetWidth(400);
+                           );
+                     
+                        jg:DMDistribution_TrtVar<<SetScript(
+                        if(jg:DMDistribution_runscriptr,
+                           if(NItems(jg:DMDistribution_TrtVar<<GetSelected)>0,
+                              jg:DMDistribution_TrtVarButton<<SetButtonName("<--");
+                              lhsel=jg:DMDistributionStudyNameColList3<<GetSelectedIndices;
+                              if(NItems(lhsel)>0,
+                                 jg:DMDistribution_runscriptl = 0;
+                                 for(selidx=1,selidx<=NItems(lhsel),selidx++,
+                                    jg:DMDistributionStudyNameColList3<<SetSelected(lhsel[selidx],0)
+                                 );
+                                 jg:DMDistribution_runscriptl = 1;
+                              )
+                           ))
+                        );
+                        jg:DMDistribution_DesignByVars<<SetScript(
+                        if(jg:DMDistribution_runscriptr,
+                           if(NItems(jg:DMDistribution_DesignByVars<<GetSelected)>0,
+                              jg:DMDistribution_DesignByVarsButton<<SetButtonName("<--");
+                              lhsel=jg:DMDistributionStudyNameColList7<<GetSelectedIndices;
+                              if(NItems(lhsel)>0,
+                                 jg:DMDistribution_runscriptl = 0;
+                                 for(selidx=1,selidx<=NItems(lhsel),selidx++,
+                                    jg:DMDistributionStudyNameColList7<<SetSelected(lhsel[selidx],0)
+                                 );
+                                 jg:DMDistribution_runscriptl = 1;
+                              )
+                           ))
+                        );
+                              jg:DMDistributionStudyNameColList3<<SetScript(
+                              if(jg:DMDistribution_runscriptl,
+                              if(NItems(jg:DMDistributionStudyNameColList3<<GetSelected)>0,
+                                       jg:DMDistribution_TrtVarButton<<SetButtonName("-->");
+                                         rhsel=jg:DMDistribution_TrtVar<<GetSelectedIndices;
+                                         nrhsel=NItems(rhsel);
+                                         if(nrhsel>0,
+                                          jg:DMDistribution_runscriptr = 0;
+                                          for(selidx=1,selidx<=nrhsel,selidx++,
+                                             jg:DMDistribution_TrtVar<<SetSelected(rhsel[selidx],0)
+                                          );
+                                          jg:DMDistribution_runscriptr = 1;
+                                       );
+                                        ))); 
+                              jg:DMDistributionStudyNameColList7<<SetScript(
+                              if(jg:DMDistribution_runscriptl,
+                              if(NItems(jg:DMDistributionStudyNameColList7<<GetSelected)>0,
+                                       jg:DMDistribution_DesignByVarsButton<<SetButtonName("-->");
+                                         rhsel=jg:DMDistribution_DesignByVars<<GetSelectedIndices;
+                                         nrhsel=NItems(rhsel);
+                                         if(nrhsel>0,
+                                          jg:DMDistribution_runscriptr = 0;
+                                          for(selidx=1,selidx<=nrhsel,selidx++,
+                                             jg:DMDistribution_DesignByVars<<SetSelected(rhsel[selidx],0)
+                                          );
+                                          jg:DMDistribution_runscriptr = 1;
+                                       );
+                                        ))); jg:DMDistribution_updateDeps = Function({},{i},i=0;
+                        jg:updateControl(3, "DMDistribution", 1);
+                     
+                        jg:updateControl(3, "DMDistribution", 2);
+                     
+                        jg:updateControl(3, "DMDistribution", 10);
+                     );jg:DMDistribution_updateDeps;
+               if(isEmpty(Here:_oapwsf_),
+                  Here:_oapwsf_ = 0
+               );
+               if(IsEmpty(_RunWorkflow_),
+                  _RunWorkflow_ = 0;
+               );
+               if(Here:_oapwsf_==0 & _RunWorkflow_ == 0,
+                  if(LSindex==3 & Contains("DMDistribution","AddStudyLocal")==0 & Contains("DMDistribution","AddStudyServer")==0 & Contains("DMDistribution","Studies")==0 & Contains("DMDistribution","PVDisproportionalityAnalysis")==0 & Contains("DMDistribution","FindingsTimeToEvent")==0,
+                     autorun = jg:autorun
+                     , //else 
+                     autorun = 0
+                  );
+                  if(autorun==1,
+                     savedSettingFileName="_Defaults_";
+                     jg:setSavedSettingsDir(jg:jmpLSUserDir[3]);
+                     eval(parse( "jg:_Defaultexists_"||char(jg:LSindex)||"=1;"));
+                     //jg:_Defaultexists_=1;
+                     SavedSettings = jg:settingssaveok(3,"DMDistribution", savedSettingFileName); 
+                     eval(parse( "jg:defaultSavedSettings_"||char(jg:LSIndex)||"=SavedSettings;"));
+                     jg:_diagpos_ = jg:DMDistribution_mainDialog << Get Window Position;
+                     jg:runProcess(3,"DMDistribution");
+                     if(Contains("DMDistribution","BasicSafetyWorkflow")==0,
+                    		jg:closeJMPBIODlg("DMDistribution");
+                    	);
+                  );
+               )           
+            
